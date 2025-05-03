@@ -1,15 +1,25 @@
 
-const express = require('express'); // Import the Express.js framework
-const app = express(); // Create an Express application instance
-const port = 3000; // Define the port the server will listen on
+const express = require('express');
+const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
+const { body, validationResult } = require('express-validator');
 
-app.use(bodyParser.json())
+const app = express();
+const port = 3000;
+const secretKey = 'yourSecretKey'; // Replace with a strong secret key
+
+app.use(bodyParser.json());
 
 let todos = [
   { id: 1, title: 'Learn Node.js', completed: false },
   { id: 2, title: 'Build a REST API', completed: false }
 ];
+
+let users = [
+  { id: 1, username: 'testuser', password: 'password123' } // In a real app, store hashed passwords!
+];
+
+let nextUserId = 2;
 
 let nextId = 3;
 
@@ -17,8 +27,57 @@ app.get("/", (_req,res)=>{
   res.status(200).send("Hello, Welcome to Todo list!!!")
 })
 
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token == null) return res.sendStatus(401); // No token
+
+  jwt.verify(token, secretKey, (err, user) => {
+    if (err) return res.sendStatus(403); // Invalid token
+    req.user = user;
+    next();
+  });
+};
+
+// User registration route
+app.post('/auth/register', [
+  body('username').isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+  body('password').isLength({ min: 5 }).withMessage('Password must be at least 5 characters')
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  const { username, password } = req.body;
+  const newUser = { id: nextUserId++, username, password }; // Again, hash the password in a real app
+  users.push(newUser);
+  res.status(201).json({ message: 'User registered successfully', user: newUser });
+});
+
+// User login route
+app.post('/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  const user = users.find(u => u.username === username && u.password === password);
+
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign({ userId: user.id, username: user.username }, secretKey, { expiresIn: '1h' });
+  res.json({ token });
+});
+
+// Protected route example
+app.get('/protected', authenticateToken, (req, res) => {
+  res.json({ message: 'This is a protected route', user: req.user });
+});
+
 // GET /todos - Get all todos
-app.get('/todos', (req, res) => {
+app.get('/todos', authenticateToken, (req, res) => {
+
+  console.log(req.user)
   res.status(200).json(todos);
 });
 
@@ -31,16 +90,25 @@ app.get('/todos/:id', (req, res) => {
   if (!todo) {
     return res.status(404).json({ message: 'Todo not found' });
   }
-
   res.status(200).json(todo);
 });
 
 
 // POST /todos - Add a new todo
-app.post('/todos', (req, res) => {
+app.post('/todos',authenticateToken,[
+  body('title').notEmpty().withMessage('Title is required'),
+  body('completed').isBoolean().withMessage('Completed must be a boolean')
+],(req, res) => {
+
+  const errors = validationResult(req);
+
+  // If there are validation errors, return a 400 Bad Request response with the errors.
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   const task = req.body; // Extract the 'task' from the request body
 
-  console.log(task)
 
   // Basic validation: Check if the 'task' is provided.
   if (!task) {
@@ -58,14 +126,18 @@ app.post('/todos', (req, res) => {
   // Add the new todo to the todos array.
   todos.push(newTodo);
 
-  console.log("after: "+JSON.stringify(newTodo) )
 
   // Send a 201 Created response with the newly created todo object.
   res.status(201).json(newTodo);
 });
 
 // PUT /todos/:id - Update a todo
-app.put('/todos/:id', (req, res) => {
+app.put('/todos/:id', authenticateToken, [
+  body('title').optional().notEmpty().withMessage('Title cannot be empty if provided'),
+  body('completed').optional().isBoolean().withMessage('Completed must be a boolean if provided')
+],(req, res) => {
+
+  
   // Get the todo ID from the URL parameters.
   const todoId = parseInt(req.params.id);
   const { title, completed } = req.body; // Get the updated task and completed status from the request body
@@ -97,7 +169,7 @@ app.put('/todos/:id', (req, res) => {
 });
 
 // DELETE /todos/:id - Delete a todo
-app.delete('/todos/:id', (req, res) => {
+app.delete('/todos/:id', authenticateToken, (req, res) => {
   // Get the todo ID from the URL parameters.
   const todoId = parseInt(req.params.id);
 

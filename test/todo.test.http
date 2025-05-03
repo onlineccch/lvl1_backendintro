@@ -1,12 +1,39 @@
+### Login 
+
+# @name login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "username": "test_user21",
+  "password": "testpassword"
+}
+
+### Register
+
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+  "username": "test_user21",
+  "password": "testpassword"
+}
+
+###
+
+@auth_token = {{login.response.body.token}}
+
 ### HTTP GET all todos
 
 GET http://localhost:3000/todos
+Authorization: Bearer {{auth_token}} 
 
 
 ### HTTP POST a new todo
 
 POST http://localhost:3000/todos
 Content-Type: application/json
+Authorization: Bearer {{auth_token}} 
 
 {
   "title": "Test Todo",
@@ -21,6 +48,7 @@ GET http://localhost:3000/todos/1
 
 PUT http://localhost:3000/todos/1
 Content-Type: application/json
+Authorization: Bearer {{auth_token}} 
 
 {
   "title": "Updated Test Todo",
@@ -30,6 +58,7 @@ Content-Type: application/json
 ### HTTP DELETE a todo
 
 DELETE http://localhost:3000/todos/1
+Authorization: Bearer {{auth_token}} 
 
 
 ### HTTP GET a non-existent todo (should return 404)
