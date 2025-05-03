@@ -1,0 +1,37 @@
+### HTTP GET all todos
+
+GET http://localhost:3000/todos
+
+
+### HTTP POST a new todo
+
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "title": "Test Todo",
+  "completed": false
+}
+
+### HTTP GET a single todo by ID
+
+GET http://localhost:3000/todos/1
+
+### HTTP PUT (update) a todo
+
+PUT http://localhost:3000/todos/1
+Content-Type: application/json
+
+{
+  "title": "Updated Test Todo",
+  "completed": true
+}
+
+### HTTP DELETE a todo
+
+DELETE http://localhost:3000/todos/1
+
+
+### HTTP GET a non-existent todo (should return 404)
+
+GET http://localhost:3000/todos/nonexistentid123
